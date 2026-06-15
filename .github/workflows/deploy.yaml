@@ -1,16 +1,8 @@
-name: Deploy Zensical (zen.daemonless.io)
-
-# Thin build+deploy mirror. ALL source (docs, placeholder-plugin.yaml,
-# zensical.toml, Makefile, scripts) lives in daemonless/daemonless-io. This repo
-# only provides the CNAME and this workflow, which builds the Zensical variant
-# (`make build-zen`, including the placeholder post-process) and publishes it to
-# zen.daemonless.io. daemonless.io itself stays on the MkDocs build in daemonless-io.
+name: Deploy Redirect (zen.daemonless.io)
 
 on:
   push:
     branches: [main]
-  schedule:
-    - cron: "30 */6 * * *"   # offset from daemonless-io's "0 */6"
   workflow_dispatch:
 
 permissions:
@@ -23,69 +15,23 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      # Checkout order matters: daemonless-io, dbuild, daemonless and the fetched
-      # image repos must be SIBLINGS (daemonless-io's scripts use REPO_ROOT.parent).
-      - name: Checkout this repo (for CNAME)
-        uses: actions/checkout@v6
-        with:
-          path: zen-daemonless-io
-
-      - name: Checkout daemonless-io (source of truth)
-        uses: actions/checkout@v6
-        with:
-          repository: daemonless/daemonless-io
-          path: daemonless-io
-
-      - name: Checkout dbuild
-        uses: actions/checkout@v6
-        with:
-          repository: daemonless/dbuild
-          path: dbuild
-
-      - name: Checkout daemonless (daemonless-versions.json)
-        uses: actions/checkout@v6
-        with:
-          repository: daemonless/daemonless
-          path: daemonless
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.12"
-
-      - name: Install dependencies
-        run: pip install -r daemonless-io/requirements.txt
-
-      - name: Fetch image repositories
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: cd daemonless-io && make fetch
-
-      - name: Generate documentation
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: cd daemonless-io && make generate
-
-      - name: Build Zensical site (+ placeholder post-process)
-        run: cd daemonless-io && make build-zen
-
-      - name: Add CNAME for zen.daemonless.io
-        run: cp zen-daemonless-io/CNAME daemonless-io/site-zen/CNAME
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v4
-        with:
-          path: daemonless-io/site-zen/
-
   deploy:
-    needs: build
     runs-on: ubuntu-latest
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v6
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: '.'
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
